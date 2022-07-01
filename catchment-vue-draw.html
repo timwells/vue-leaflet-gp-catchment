@@ -1,0 +1,73 @@
+<!DOCTYPE >
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Catchment-Editor-Discussion</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@latest/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.css" />
+
+
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script src="https://unpkg.com/vuex"></script>
+
+    <script src="https://unpkg.com/leaflet@latest/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script>
+  	<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+
+	<style>
+	html,
+	body { font-family: Arial, Verdana; background-color: #eef1ef; font-size: 16px; }
+	html,
+	body { width: 100%; height: 100%; margin: 0;}
+	  .wrapper { width: 100%; }
+	  .map { height: 100%; }
+
+    .box {height: 200px; width: 200px; text-align: center;}
+    .red { background-color: red; }
+    .green { background-color: green; }
+	</style>
+</head>
+<body>  
+<div id="app">
+	<leaflet-map></leaflet-map>
+  </div>
+</div>
+
+<script>
+  Vue.component('LeafletMap', {
+    template: '<div class="wrapper"><div class="map" id="mapId"></div></div>',
+    data() { return {}
+    },
+    methods: {},
+    mounted() { 
+      const tiles = 
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+          maxZoom: 19,attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}
+      );
+
+      const map = L.map('mapId').setView([51.505, -0.09], 12).addLayer(tiles);
+      map.pm.addControls({
+        /* position: 'topright', */
+        drawMarker: true,
+        drawRectangle: false,
+        drawPolygon: true,
+        drawCircle: false,
+        drawCircleMarker: false,
+        editMode: true,
+        drawPolyline: false,
+        removalMode: false,
+        rotateMode:false
+      });
+      map.pm.enableDraw('Polygon', { allowSelfIntersection: false });
+    }
+  })
+
+  const vueApp = new Vue({
+    el: '#app',
+    data: { display: 'redbox' },
+    methods: {}
+  })
+</script>
+
+</body>
+</html>
