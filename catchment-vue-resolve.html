@@ -14,6 +14,9 @@
     <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script>
   	<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue-toasted/1.1.28/vue-toasted.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vue-toasted/1.1.28/vue-toasted.min.css" integrity="sha512-P9tgFEUBcyvFHEXSRGLQB/SvGxnMfJCZGy4SBp+JIFgs1BSoYfUkadkZri9Rwkeh8Vg0lGo72X99o31wetRGCw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
 	<style>
 	html,
 	body { font-family: Arial, Verdana; background-color: #eef1ef; font-size: 16px; }
@@ -46,7 +49,7 @@
     <!--script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script-->
 		
 <script>
-  var CATCHMENTID = 0
+  var CATCHMENTID = 1
   var CATCHMENTS = [{
         "type":"FeatureCollection",
         "features":[{
@@ -174,15 +177,6 @@
 </script>
 
 <script>
-  Vue.component('ColoredBox', {
-    template: '<div class="box"><button v-on:click="toggleMe()">Toggle Now</button></div>',
-    methods: {
-      toggleMe() {
-        this.$root.toggleBox()
-      }
-    }
-  })
-
   Vue.component('LeafletMap', {
     template: '<div class="wrapper"><div class="map" id="mapId"></div></div>',
     data() { return {
@@ -200,7 +194,6 @@
       );
 
       const map = L.map('mapId').setView([51.505, -0.09], 13).addLayer(tiles);
-
       map.pm.addControls({
         /* position: 'topright', */
         drawMarker: true,
@@ -214,12 +207,19 @@
         rotateMode:false
       });
 
+      // map.pm.enableDraw('Polygon', { allowSelfIntersection: false });
+      
       // Load the Catchment by Id
       const geoJsonSet = L.geoJson(this.catchments[this.id]);
-	  
-	  console.log("# of Polygon Pts:",this.catchments[this.id].features[0].geometry.coordinates[0].length)
-	  
-      geoJsonSet.addTo(map);
+	    console.log("# of Polygon Pts:",this.catchments[this.id].features[0].geometry.coordinates[0].length)
+	    geoJsonSet.addTo(map);
+
+      // On Edit enable selfIntersectionChecks
+      geoJsonSet.on('pm:edit', (e) => {
+        e.layer.pm.enable({ allowSelfIntersection: false, allowSelfIntersectionEdit: true });
+        console.log("hasSelfIntersection:",e.layer.pm.hasSelfIntersection());
+      });
+
       map.fitBounds(geoJsonSet.getBounds());
 
       // set up the custom control
@@ -232,17 +232,45 @@
       };
 
       // https://turfjs.org/docs/#convex
-      const applyConvexHullFixButton = createButton('Convex Hull', (ev) => {  
+      const applyConvexHullFixButton = createButton('Convex Hull ', (ev) => {  
         let polygon = turf.polygon(this.catchments[this.id].features[0].geometry.coordinates);
         let convextHull = turf.convex(polygon);
-
+      
         console.log('applyConvexHullFixButton',convextHull)        
-		console.log("# of Convex Pts:",convextHull.geometry.coordinates[0].length)
+        
+        if(convextHull != null) {
+          console.log("# of Convex Pts:",convextHull.geometry.coordinates[0].length)
 
+          // Remove Existing Catchement
+          geoJsonSet.remove();
 
-        const fixedCollection = L.geoJson(convextHull);
-        fixedCollection.addTo(map);  
-        geoJsonSet.remove();
+          // Build new Catchement
+          const fixedCollection = L.geoJson(convextHull);        
+
+          // On Edit enable selfIntersectionChecks
+          fixedCollection.on('pm:edit', (e) => {
+            e.layer.pm.enable({ allowSelfIntersection: false, allowSelfIntersectionEdit: true });
+            console.log("hasSelfIntersection:",e.layer.pm.hasSelfIntersection());
+          });
+
+          // Add to Map
+          fixedCollection.addTo(map);
+
+          vueApp.$toasted.show(`Convex Hull Algorithm Applied Successfully, 
+                #pts(${this.catchments[this.id].features[0].geometry.coordinates[0].length} -> 
+                  ${convextHull.geometry.coordinates[0].length})`, { 
+  	        theme: "toasted-primary", 
+	          position: "bottom-right", 
+	          duration : 8000
+          });
+
+        } else {
+          vueApp.$toasted.show(`Convex Hull Algorithm Failed!`, { 
+  	        theme: "bubble", 
+	          position: "bottom-right", 
+	          duration : 8000
+          });
+        }
       });
 
       // https://turfjs.org/docs/#concave
@@ -257,11 +285,25 @@
         
           fixedCollection.addTo(map);  
           geoJsonSet.remove();
+
+          vueApp.$toasted.show(`Concave Hull Algorithm Applied Successfully, 
+                #pts(${this.catchments[this.id].features[0].geometry.coordinates[0].length} -> 
+                  ${convextHull.geometry.coordinates[0].length})`, { 
+  	        theme: "toasted-primary", 
+	          position: "bottom-right", 
+	          duration : 8000
+          });
         }
-        else alert("Concave Hull Failed!")
+        else { 
+          vueApp.$toasted.show(`Concave Hull Algorithm Failed!`, { 
+  	        theme: "bubble", 
+	          position: "bottom-right", 
+	          duration : 8000
+          });
+        }
       });
 
-      const applySmoothingFixButton = createButton('Smoothing', (ev) => {
+      const applySmoothingFixButton = createButton(' Smoothing  ', (ev) => {
         let polygon = turf.polygon(this.catchments[this.id].features[0].geometry.coordinates);
 
         // https://turfjs.org/docs/#simplify
@@ -269,12 +311,31 @@
         let simplified = turf.simplify(polygon, options);	
         
         console.log('applySmoothingFixButton',simplified);
-		console.log("# of Simplified Pts:",simplified.geometry.coordinates[0].length)
+		    console.log("# of Simplified Pts:",simplified.geometry.coordinates[0].length)
         if(simplified != null) {
-          const fixedCollection = L.geoJson(simplified);
-        
-          fixedCollection.addTo(map);  
+
+          // Remove Existing Catchement
           geoJsonSet.remove();
+
+          // Build new Catchement
+          const fixedCollection = L.geoJson(simplified);        
+          
+          // On Edit enable selfIntersectionChecks
+          fixedCollection.on('pm:edit', (e) => {
+            e.layer.pm.enable({ allowSelfIntersection: false, allowSelfIntersectionEdit: true });
+            console.log("hasSelfIntersection:",e.layer.pm.hasSelfIntersection());
+          });
+          
+          // Add to Map
+          fixedCollection.addTo(map);
+
+          vueApp.$toasted.show(`Smoothing Algorithm Applied Successfully, 
+                #pts(${this.catchments[this.id].features[0].geometry.coordinates[0].length} -> 
+                  ${simplified.geometry.coordinates[0].length})`, { 
+  	        theme: "toasted-primary", 
+	          position: "bottom-right", 
+	          duration : 8000
+          });
         }
         else alert("Smoothing Failed!")
       });
@@ -284,7 +345,9 @@
 	        const fixToolBar = document.createElement('div');
           fixToolBar.appendChild(applyConvexHullFixButton);
           fixToolBar.appendChild(document.createElement('br'))
+          fixToolBar.appendChild(document.createElement('br'))
           fixToolBar.appendChild(applyConcaveFixButton);
+          fixToolBar.appendChild(document.createElement('br'))
           fixToolBar.appendChild(document.createElement('br'))
           fixToolBar.appendChild(applySmoothingFixButton);
 	  
@@ -299,22 +362,24 @@
       L.Control.fixControl({ position: 'topleft' }).addTo(map);
     }
   })
-  
-  Vue.component('MyButton', {
-    data: function () { return { count: 0 }},
-    template: '<button v-on:click="count++">hit clicked {{ count }} times.</button>'
-  })
+
+  Vue.use(Toasted, {
+    // Setting the global default position
+    position: "top-left"
+  });
 
   const vueApp = new Vue({
     el: '#app',
-    data: { display: 'redbox' },
-    methods: {
-      toggleBox() {
-        this.display == 'redbox' ? this.display = 'greenbox' : this.display = 'redbox'
-      }
-    }
   })
-</script>
+  
+  console.log(vueApp.$toasted)
+  
+  //vueApp.use(VueToast.ToastPlugin);
+  //vueApp.$toast.success('Order placed.', {
+    // override the global option
+    //position: 'bottom'
+ //})
 
+</script>
 </body>
 </html>
