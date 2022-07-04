@@ -46,7 +46,7 @@
     <!--script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script-->
 		
 <script>
-  var CATCHMENTID = 1
+  var CATCHMENTID = 0
   var CATCHMENTS = [{
         "type":"FeatureCollection",
         "features":[{
@@ -216,6 +216,9 @@
 
       // Load the Catchment by Id
       const geoJsonSet = L.geoJson(this.catchments[this.id]);
+	  
+	  console.log("# of Polygon Pts:",this.catchments[this.id].features[0].geometry.coordinates[0].length)
+	  
       geoJsonSet.addTo(map);
       map.fitBounds(geoJsonSet.getBounds());
 
@@ -234,6 +237,9 @@
         let convextHull = turf.convex(polygon);
 
         console.log('applyConvexHullFixButton',convextHull)        
+		console.log("# of Convex Pts:",convextHull.geometry.coordinates[0].length)
+
+
         const fixedCollection = L.geoJson(convextHull);
         fixedCollection.addTo(map);  
         geoJsonSet.remove();
@@ -263,6 +269,7 @@
         let simplified = turf.simplify(polygon, options);	
         
         console.log('applySmoothingFixButton',simplified);
+		console.log("# of Simplified Pts:",simplified.geometry.coordinates[0].length)
         if(simplified != null) {
           const fixedCollection = L.geoJson(simplified);
         
